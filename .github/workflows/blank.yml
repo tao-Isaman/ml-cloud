@@ -1,0 +1,45 @@
+name: CI/CD Workflow
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Authenticate with Google Cloud
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        service_account_key: ${{ secrets.GCLOUD_SA_KEY }}
+        project_id: ${{ secrets.GCLOUD_PROJECT_ID }}
+
+    - name: Submit training job to Google ML Engine
+      run: gcloud ai-platform jobs submit training my_job \
+          --module-name my_module.task \
+          --package-path my_module/ \
+          --staging-bucket gs://my-staging-bucket \
+          --region us-central1 \
+          --runtime-version 2.3 \
+          --python-version 3.7 \
+          --scale-tier basic \
+          --config config.yaml \
+          --project my-project-id \
+          --verbosity debug \
+
+    - name: Build and deploy to App Engine
+      run: gcloud app deploy --project=my-project-id app.yaml
+
